@@ -1,0 +1,23 @@
+name: Deliver public extensions to staging
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: deliver-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  deliver:
+    name: Deliver public extensions to staging
+    uses: sloper-ai/extension-sdk/.github/workflows/deliver-extensions.yml@61952887b612d7ef2c2b146f1500cbea35f22a43
+    with:
+      sdk-revision: 61952887b612d7ef2c2b146f1500cbea35f22a43
+      visibility: public

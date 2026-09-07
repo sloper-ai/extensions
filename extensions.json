@@ -1,0 +1,8 @@
+{
+  "extensions": [
+    {
+      "path": "gmail",
+      "package": "gmail"
+    }
+  ]
+}

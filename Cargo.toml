@@ -1,0 +1,55 @@
+[workspace]
+resolver = "2"
+members = ["gmail"]
+exclude = ["vendor/google-gmail1"]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.95"
+repository = "https://github.com/sloper-ai/extensions"
+publish = false
+
+[workspace.dependencies]
+async-trait = "=0.1.92"
+base64 = "=0.23.1"
+futures = { version = "=0.3.34", default-features = false, features = ["async-await", "std"] }
+google-gmail1 = { version = "=7.0.0", default-features = false, features = ["ring"] }
+http = "=1.5.0"
+http-body-util = "=0.1.5"
+httpdate = "=1.0.3"
+hyper-rustls = { version = "=0.27.9", default-features = false, features = ["http2", "ring", "webpki-tokio"] }
+mime = "=0.3.17"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+sloper-extension = { git = "https://github.com/sloper-ai/extension-sdk.git", rev = "61952887b612d7ef2c2b146f1500cbea35f22a43", version = "=0.0.0" }
+sloper-extension-host = { git = "https://github.com/sloper-ai/extension-sdk.git", rev = "61952887b612d7ef2c2b146f1500cbea35f22a43", version = "=0.0.0", features = ["runtime"] }
+thiserror = "=2.0.20"
+time = { version = "=0.3.55", features = ["formatting", "parsing"] }
+# The WASI guest shares the SDK current-thread runtime, without process support.
+tokio-wasi = { package = "tokio", version = "=1.53.1", default-features = false, features = ["net", "rt", "time"] }
+tower-service = "=0.3.3"
+url = { version = "=2.5.8", features = ["serde"] }
+
+[workspace.lints.clippy]
+absolute_paths = "warn"
+all = { level = "warn", priority = -1 }
+module_name_repetitions = "warn"
+pedantic = { level = "warn", priority = -1 }
+
+[workspace.lints.rust]
+deprecated = "deny"
+deprecated_in_future = "deny"
+future_incompatible = { level = "deny", priority = -1 }
+missing_debug_implementations = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+unreachable_pub = "warn"
+unsafe_code = "forbid"
+
+[patch.crates-io]
+# Manifest-only WASI adaptation; generated Gmail implementation stays unchanged.
+google-gmail1 = { path = "vendor/google-gmail1" }
+
+# Exact-artifact tests compile the full Gmail component for each host invocation.
+# Optimize the third-party guest compiler without changing host or Gmail debug assertions.
+[profile.dev.package.cranelift-codegen]
+opt-level = 2

@@ -1,0 +1,22 @@
+name: Promote public extensions to production
+
+on:
+  workflow_dispatch:
+    inputs:
+      run-id:
+        description: Successful main delivery run to promote
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  promote:
+    name: Promote public extensions to production
+    uses: sloper-ai/extension-sdk/.github/workflows/promote-extensions.yml@5d2fe364214bba3e2c5d248ded75060d640d6b03
+    with:
+      sdk-revision: 5d2fe364214bba3e2c5d248ded75060d640d6b03
+      visibility: public
+      run-id: ${{ inputs.run-id }}

@@ -1,0 +1,5 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -82,2 +81,0 @@
+-    "rustls-native-certs",
+-    "native-tokio",

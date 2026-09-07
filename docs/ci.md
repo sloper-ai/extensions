@@ -1,0 +1,17 @@
+# Public extension delivery
+
+This repository owns public first-party extension delivery. `extensions.json` lists each source directory and Cargo package. Gmail declares its own explicit semantic version.
+
+The `deliver` workflow uses the SDK revision in `extension-sdk.rev`. Pull requests and pushes to `main` build final distributable components, run acceptance tests against those exact bytes, and record publication candidates. Leave the repository variable `EXTENSION_PUBLICATION_ENABLED` unset for the first main push to verify and record all candidates without selecting the staging environment or exposing publishing-token secrets.
+
+Before building distributable components, the shared workflow runs pinned `cargo-license` to generate each extension's `ThirdPartyNotices.txt`; `deny.toml` and `cargo-deny` own the accepted licence set. The final bundle includes that report and the extension's own `LICENSE`. Local Gmail builds run the `license` task as a prerequisite. Use `mise run //gmail:license` to generate the report separately.
+
+Candidates are new extensions and explicit version increases since the last successful staging job in a successful push-to-main delivery run, using that run's latest attempt. Runs containing only checks or skipped staging do not advance the baseline, so initial versions remain candidates when publication is enabled later. After a version stages successfully, source-only changes at that version run tests without creating another candidate. An empty collection succeeds during verification and creates no staging publication.
+
+Configure caller-owned `staging` and `production` environments. Each uses its own `SLOPER_API_TOKEN` environment secret with the publication and read scopes needed for the intended Sloper namespace and packages. Set `SLOPER_API_URL` in each environment to its Sloper HTTPS API origin. Production also needs `SLOPER_STAGING_API_URL` matching the staging origin. After both environments and tokens are configured, set the repository variable `EXTENSION_PUBLICATION_ENABLED` to `true`. The next push to `main`, or a rerun of its delivery workflow, publishes nonempty candidate sets to staging with `public` visibility. When publication is enabled, a missing staging token or API URL fails explicitly. The delivery caller uses push and pull-request triggers; it has no manual dispatch trigger.
+
+Run `promote` on main with a successful staging delivery run ID. A run with skipped staging has no receipt, so promotion fails for the missing staging receipt. Promotion verifies the caller's artifacts and staging receipt and publishes the original tested bytes to production. It never rebuilds or executes candidate source scripts. Promote within the artifact's 30-day retention and before changing the SDK revision. Reruns preserve immutable bytes and use the Sloper API's idempotent publication.
+
+To update the SDK pin, choose a reviewed existing SDK commit and record its full SHA in `extension-sdk.rev`. Use that same SHA in the reusable-workflow `uses` references and `sdk-revision` inputs in `.github/workflows/deliver.yml` and `.github/workflows/promote.yml`. Update both SDK Git dependencies in `Cargo.toml`, regenerate `Cargo.lock`, and run the collection checks before committing the pin change.
+
+The [SDK CI guide](https://github.com/sloper-ai/extension-sdk/blob/main/docs/ci.md) documents the artifact spec, token rotation, helper commands, failure handling, and organization CI setup. These workflows do not create credentials or change organization policy.

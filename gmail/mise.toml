@@ -1,0 +1,34 @@
+[task_config.input_groups]
+cargo = ["@group:cargo_workspace", "Cargo.toml"]
+
+[tasks.license]
+run = "cargo license --manifest-path Cargo.toml --filter-platform wasm32-wasip2 --avoid-dev-deps --tsv --output ThirdPartyNotices.txt"
+sources = ["@group:cargo", "../vendor/google-gmail1/Cargo.toml"]
+outputs = ["ThirdPartyNotices.txt"]
+cache = { enabled = true }
+
+[tasks.build]
+depends = ["license"]
+run = "sloper-extension build . --json"
+sources = [
+  "@group:cargo",
+  "../extension-sdk.rev",
+  "../vendor/google-gmail1/**",
+  "LICENSE",
+  "ThirdPartyNotices.txt",
+  "src/**",
+]
+outputs = ["dist/extension.wasm", "dist/LICENSE", "dist/ThirdPartyNotices.txt"]
+
+[tasks.test]
+depends = ["build"]
+run = "cargo test --locked --package gmail"
+sources = [
+  "@group:cargo",
+  "../extension-sdk.rev",
+  "../vendor/google-gmail1/**",
+  "dist/extension.wasm",
+  "src/**",
+  "tests/**",
+]
+outputs = []

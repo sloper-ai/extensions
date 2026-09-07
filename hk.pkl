@@ -1,0 +1,155 @@
+amends "package://github.com/jdx/hk/releases/download/v2.0.0/hk@2.0.0#/Config.pkl"
+
+import "package://github.com/jdx/hk/releases/download/v2.0.0/hk@2.0.0#/Builtins.pkl"
+
+min_hk_version = "2.0.0"
+hide_warnings = List("missing-profiles")
+exclude = "vendor"
+
+local generatedFiles = List("Cargo.lock", "mise.lock")
+
+local rustFiles =
+  List(
+    ".cargo/**",
+    "Cargo.toml",
+    "Cargo.lock",
+    "**/*.rs",
+    "**/Cargo.toml",
+    "rust-toolchain.toml",
+    "rustfmt.toml",
+  )
+
+local slow = List("slow")
+
+// Shared by the materialized check, fix, and pre-commit hooks. Pre-push and CI
+// include the slow profile.
+steps {
+  ["bom"] = (Builtins.byte_order_marker) {
+    exclude = generatedFiles
+  }
+  ["case-conflicts"] = Builtins.check_case_conflict
+  ["executables-have-shebangs"] = Builtins.check_executables_have_shebangs
+  ["large-files"] = (Builtins.check_added_large_files) {
+    exclude = generatedFiles
+  }
+  ["merge-conflicts"] = Builtins.check_merge_conflict
+  ["mixed-line-endings"] = (Builtins.mixed_line_ending) {
+    exclude = generatedFiles
+  }
+  ["newlines"] = (Builtins.newlines) {
+    exclude = generatedFiles
+  }
+  ["symlinks"] = Builtins.check_symlinks
+  ["trailing-whitespace"] = (Builtins.trailing_whitespace) {
+    exclude = generatedFiles
+  }
+  ["private-keys"] = Builtins.detect_private_key
+  ["typos"] = (Builtins.typos) {
+    check = "typos --force-exclude {{ files }} || exit 1"
+  }
+  ["rumdl"] = (Builtins.rumdl) {
+    depends = "ryl"
+  }
+  ["lychee"] = (Builtins.lychee) {
+    types = List("markdown", "html")
+    check = "lychee --offline --no-progress {{ files }}"
+    depends = "rumdl"
+  }
+  ["pkl-format"] = (Builtins.pkl_format) {
+    shell = null
+    fix = "pkl format --write {{ files }}"
+  }
+  ["tombi-format"] = (Builtins.tombi_format) {
+    depends = "typos"
+  }
+  ["tombi"] = (Builtins.tombi) {
+    depends = "tombi-format"
+  }
+  ["mise"] = (Builtins.mise) {
+    glob = List("**/mise.toml", "**/mise.*.toml", ".miserc.toml")
+    check = "mise -C \"{{workspace}}\" fmt --check"
+    fix = "mise -C \"{{workspace}}\" fmt"
+    depends = "tombi"
+    workspace_indicator = "mise.toml"
+  }
+  ["actionlint"] = Builtins.actionlint
+  // SDK releases use crate-prefixed tags. Enforce immutable workflow refs
+  // without pinact's semver-only version-comment requirement.
+  ["ghalint"] = (Builtins.ghalint_workflow) {
+    depends = "actionlint"
+  }
+  ["ryl"] = (Builtins.ryl) {
+    glob = List("**/*.{yaml,yml,md,markdown}")
+    types = null
+    check_diff = "ryl check --strict --diff {{ files }}"
+    fix = "ryl check --strict --fix {{ files }}"
+    depends = "typos"
+  }
+  ["jq"] = (Builtins.jq) {
+    check = "jq empty {{ files }}"
+    check_diff = null
+    fix = null
+  }
+  ["cargo-fmt"] = (Builtins.cargo_fmt) {
+    glob = rustFiles
+    workspace_indicator = null
+    check = "cargo fmt --check"
+    check_list_files = "cargo fmt --check -- --files-with-diff"
+    fix = "cargo fmt"
+  }
+  ["gitleaks"] = (Builtins.gitleaks) {
+    glob = "**/*"
+    check =
+      "gitleaks git --redact --verbose --no-banner --timeout 60 --log-opts=--all . && gitleaks git --redact --verbose --no-banner --pre-commit --staged ."
+    profiles = slow
+  }
+  ["cargo-clippy"] = (Builtins.cargo_clippy) {
+    glob = rustFiles
+    workspace_indicator = null
+    check = "cargo clippy --locked --workspace --all-targets --no-deps -- -D warnings"
+    fix =
+      "cargo clippy --fix --locked --workspace --all-targets --no-deps --allow-dirty --allow-staged -- -D warnings"
+    profiles = slow
+  }
+  ["cargo-clippy-wasi"] {
+    glob = rustFiles
+    depends = "cargo-clippy"
+    check =
+      "cargo clippy --package gmail --lib --target wasm32-wasip2 --no-deps --locked -- -D warnings"
+    profiles = slow
+  }
+  ["cargo-deny"] = (Builtins.cargo_deny) {
+    glob =
+      List(
+        "Cargo.toml",
+        "Cargo.lock",
+        "deny.toml",
+        "**/Cargo.toml",
+      )
+    workspace_indicator = null
+    dir = null
+    check = "cargo-deny --locked --workspace check"
+    profiles = slow
+  }
+}
+
+hooks {
+  ["commit-msg"] {
+    steps {
+      ["conventional-commit"] = Builtins.check_conventional_commit
+    }
+  }
+  ["pre-push"] {
+    steps {
+      ["checks"] {
+        glob = "**/*"
+        check = "hk check --all --slow"
+      }
+      ["build-and-test"] {
+        glob = "**/*"
+        depends = "checks"
+        check = "mise run '//...:build' && mise run '//...:test'"
+      }
+    }
+  }
+}

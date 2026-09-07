@@ -1,0 +1,72 @@
+min_version = "2026.9.3"
+monorepo_root = true
+
+[settings]
+activate_aggressive = true
+lockfile = true
+experimental = true
+
+[task_config]
+cascade = true
+global_inputs = ["@group:cargo_workspace"]
+shell = "{% if os() == 'windows' %}cmd /c{% else %}sh -c -o errexit{% endif %}"
+
+[task_config.input_groups]
+cargo_workspace = [
+  ".cargo/config.toml",
+  "Cargo.lock",
+  "Cargo.toml",
+  "rust-toolchain.toml",
+]
+
+[tools]
+# Keep the pinned CLI ahead of Rust's Cargo-global binaries on PATH.
+"cargo:https://github.com/sloper-ai/extension-sdk.git" = { version = "rev:{{ read_file(path=config_root ~ '/extension-sdk.rev') | trim }}", crate = "sloper-extension-cli", bin = "sloper-extension", depends = [
+  "rust",
+] }
+actionlint = { version = "1.7.12", depends = ["shellcheck"] }
+cargo-deny = "0.20.2"
+# cargo-license has no upstream binaries.
+"cargo:https://github.com/onur/cargo-license" = { version = "rev:6ec6d98f31cbe58240b64ee486aa1393660bf6d2", crate = "cargo-license", depends = [
+  "rust",
+] }
+gitleaks = "8.30.1"
+"aqua:jdx/hk" = "2.0.0"
+jq = "1.8.2"
+lychee = "0.24.2"
+ghalint = "1.5.6"
+pkl = "0.32.1"
+rumdl = "0.2.73"
+ryl = "0.22.0"
+shellcheck = "0.11.0"
+tombi = "1.5.5"
+typos = "1.50.1"
+rust = "nightly-2026-08-15"
+
+[monorepo]
+config_roots = ["gmail"]
+
+[tool_alias]
+ryl = "aqua:owenlamont/ryl"
+cargo-deny = "aqua:EmbarkStudios/cargo-deny"
+
+[tasks.bootstrap]
+depends = ["bootstrap:cargo", "bootstrap:hooks"]
+outputs = []
+
+[tasks."bootstrap:cargo"]
+hide = true
+run = "cargo fetch --locked"
+sources = ["gmail/Cargo.toml", "vendor/google-gmail1/Cargo.toml"]
+outputs = []
+
+[tasks."bootstrap:hooks"]
+hide = true
+run = "hk install --mise"
+sources = ["hk.pkl"]
+outputs = []
+
+[tasks.check]
+run = "hk check --all --slow"
+sources = ["deny.toml", "rustfmt.toml", "vendor/google-gmail1/**"]
+outputs = []
